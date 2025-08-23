@@ -46,19 +46,43 @@ export default function Page() {
   const widgetRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
 
-  // Render Turnstile widget when script is available
-  useEffect(() => {
-    if (!siteKey || !widgetRef.current) return;
-    if (window.turnstile && !widgetIdRef.current) {
-      widgetIdRef.current = window.turnstile.render(widgetRef.current, {
+ // Render Turnstile widget when script is available (with retry)
+useEffect(() => {
+  if (!siteKey || !widgetRef.current) return;
+
+  let cancelled = false;
+  let tries = 0;
+  let widgetId: string | undefined;
+
+  function tryRender() {
+    if (cancelled) return;
+    if (window.turnstile && widgetRef.current && !widgetIdRef.current) {
+      widgetId = window.turnstile.render(widgetRef.current, {
         sitekey: siteKey,
         callback: (token) => setCaptcha(token),
         'expired-callback': () => setCaptcha(null),
         'error-callback': () => setCaptcha(null),
         appearance: 'always',
       }) as string | undefined;
+      widgetIdRef.current = widgetId;
+      return; // success; stop retrying
     }
-  }, [siteKey]);
+    if (tries < 50) { // ~10s total @ 200ms
+      tries += 1;
+      setTimeout(tryRender, 200);
+    }
+  }
+
+  tryRender();
+
+  return () => {
+    cancelled = true;
+    // optionally reset (safe no-op if not rendered)
+    try {
+      if (widgetIdRef.current) window.turnstile?.reset?.(widgetIdRef.current);
+    } catch {}
+  };
+}, [siteKey]);
 
   const hasErrors = useMemo(() => Object.keys(fieldErrors).length > 0, [fieldErrors]);
 
@@ -203,13 +227,13 @@ export default function Page() {
           <p className="text-sm text-red-600">Missing NEXT_PUBLIC_TURNSTILE_SITE_KEY env.</p>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-xl px-4 py-2 border font-medium shadow disabled:opacity-50"
-        >
-          {loading ? 'Submitting…' : 'Submit'}
-        </button>
+       <button
+  type="submit"
+  disabled={loading || !captcha}
+  className="rounded-xl px-4 py-2 border font-medium shadow disabled:opacity-50"
+>
+  {loading ? 'Submitting…' : 'Submit'}
+</button>
       </form>
     </main>
   );
