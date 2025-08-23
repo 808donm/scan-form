@@ -1,0 +1,19 @@
+#Node (catch all node_modules anywhere)
+node_modules/
+**/node_modules/**
+npm-debug.log*
+yarn-error.log*
+.pnmp-store/
+
+#Next.js
+.next/
+out/
+.vercel/
+
+#Env / Local
+.env
+.env.*.local
+.DS_Store
+
+#Tests cache
+coverage/
