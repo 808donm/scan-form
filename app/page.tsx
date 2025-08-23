@@ -41,7 +41,7 @@ export default function Page() {
   const [captcha, setCaptcha] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY as string | undefined;
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!;
 
   const widgetRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
@@ -49,6 +49,9 @@ export default function Page() {
  // Render Turnstile widget when script is available (with retry)
 useEffect(() => {
   if (!siteKey || !widgetRef.current) return;
+  if (!siteKey) {
+  setBanner('Missing NEXT_PUBLIC_TURNSTILE_SITE_KEY env on the client.');
+  return;
 
   let cancelled = false;
   let tries = 0;
