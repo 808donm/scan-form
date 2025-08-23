@@ -48,42 +48,49 @@ export default function Page() {
 
  // Render Turnstile widget when script is available (with retry)
 useEffect(() => {
-  if (!siteKey || !widgetRef.current) return;
-  if (!siteKey) {
-  setBanner('Missing NEXT_PUBLIC_TURNSTILE_SITE_KEY env on the client.');
-  return;
+  if (!widgetRef.current) return;
 
   let cancelled = false;
   let tries = 0;
-  let widgetId: string | undefined;
 
   function tryRender() {
     if (cancelled) return;
+
+    // If script is loaded and we haven't mounted a widget yet
     if (window.turnstile && widgetRef.current && !widgetIdRef.current) {
-      widgetId = window.turnstile.render(widgetRef.current, {
-        sitekey: siteKey,
+      widgetIdRef.current = window.turnstile.render(widgetRef.current, {
+        sitekey: siteKey, // siteKey is already declared with `!` so it's a string
         callback: (token) => setCaptcha(token),
         'expired-callback': () => setCaptcha(null),
         'error-callback': () => setCaptcha(null),
         appearance: 'always',
       }) as string | undefined;
-      widgetIdRef.current = widgetId;
       return; // success; stop retrying
     }
-    if (tries < 50) { // ~10s total @ 200ms
+
+    // Retry up to ~10s in case the script is still loading
+    if (tries < 50) {
       tries += 1;
       setTimeout(tryRender, 200);
     }
+  }
+
+  // At runtime, still warn if the env isn’t actually present
+  if (!siteKey) {
+    setBanner('Missing NEXT_PUBLIC_TURNSTILE_SITE_KEY env on the client.');
+    return;
   }
 
   tryRender();
 
   return () => {
     cancelled = true;
-    // optionally reset (safe no-op if not rendered)
+    // Reset widget if it was mounted
     try {
       if (widgetIdRef.current) window.turnstile?.reset?.(widgetIdRef.current);
-    } catch {}
+    } catch {
+      // ignore
+    }
   };
 }, [siteKey]);
 
